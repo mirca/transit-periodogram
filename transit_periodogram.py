@@ -97,7 +97,7 @@ def _fold(time, flux, flux_ivar, period, duration, oversample):
     return bins, depth, depth_ivar, -0.5*chi2
 
 
-def transit_periodogram(time, flux, periods, duration, flux_err=None,
+def transit_periodogram(time, flux, periods, durations, flux_err=None,
                         oversample=10, progress=False, method=None):
     """Compute the transit periodogram for a light curve.
 
@@ -109,8 +109,8 @@ def transit_periodogram(time, flux, periods, duration, flux_err=None,
         Array of measured fluxes at ``time``
     periods : array-like
         The periods to search in the same units as ``time``
-    duration : scalar
-        The transit duration to consider in the same units
+    durations : array-like
+        The transit durations to consider in the same units
         as ``time``
     flux_err : array-like
         The uncertainties on ``flux``
@@ -150,35 +150,39 @@ def transit_periodogram(time, flux, periods, duration, flux_err=None,
     flux_ivar = 1.0 / flux_err**2
 
     periods = np.atleast_1d(periods)
-    periodogram = np.empty_like(periods)
+    periodogram = -np.inf + np.zeros_like(periods)
     log_likelihood = np.empty_like(periods)
     depth_snr = np.empty_like(periods)
     depths = np.empty_like(periods)
     depth_errs = np.empty_like(periods)
     phase = np.empty_like(periods)
+    best_durations = np.empty_like(periods)
 
     gen = periods
     if progress:
         gen = tqdm(periods, total=len(periods))
 
-    for i, period in enumerate(gen):
-        bins, depth, depth_ivar, ll = _fold(time, flux, flux_ivar, period,
-                                            duration, oversample)
-        snr = depth * np.sqrt(depth_ivar)
-        if method == "snr":
-            objective = snr
-        else:
-            objective = ll
+    for duration in np.atleast_1d(np.abs(durations)):
+        for i, period in enumerate(gen):
+            bins, depth, depth_ivar, ll = _fold(time, flux, flux_ivar, period,
+                                                duration, oversample)
+            snr = depth * np.sqrt(depth_ivar)
+            if method == "snr":
+                objective = snr
+            else:
+                objective = ll
 
-        ind = np.argmax(objective)
-        periodogram[i] = objective[ind]
-        log_likelihood[i] = ll[ind]
-        depth_snr[i] = snr[ind]
-        depths[i] = depth[ind]
-        depth_errs[i] = np.sqrt(1./depth_ivar[ind])
-        phase[i] = bins[ind] + 0.5 * duration
+            ind = np.argmax(objective)
+            if objective[ind] > periodogram[i]:
+                periodogram[i] = objective[ind]
+                log_likelihood[i] = ll[ind]
+                depth_snr[i] = snr[ind]
+                depths[i] = depth[ind]
+                depth_errs[i] = np.sqrt(1./depth_ivar[ind])
+                phase[i] = bins[ind] + 0.5 * duration
+                best_durations[i] = duration
 
     return (
         periods, periodogram, log_likelihood, depth_snr, depths, depth_errs,
-        phase
+        phase, best_durations
     )
