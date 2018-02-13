@@ -2,7 +2,6 @@
 
 from __future__ import division, print_function
 
-import logging
 import numpy as np
 
 try:
@@ -10,97 +9,10 @@ try:
 except ImportError:
     tqdm = lambda x, *args, **kwargs: x
 
-try:
-    from fast_histogram import histogram1d
-except ImportError:
-    HAS_FAST_HISTOGRAM = False
-    histogram = np.histogram
-else:
-    HAS_FAST_HISTOGRAM = True
-    def histogram(*args, **kwargs):
-        return histogram1d(*args, **kwargs), None
-
 from .transit_periodogram_impl import fold as _fold
 
 
 __all__ = ["transit_periodogram"]
-
-
-def __fold(time, flux, flux_ivar, period, duration, oversample):
-    """
-    Folds and bins the flux array at `period` and computes
-    the maximum likelihood depth.
-
-    Parameters
-    ----------
-    time : array-like
-        Array with time measurements
-    flux : array-like
-        Array of measured fluxes at ``time``
-    flux_ivar : array-like
-        Inverse variance for each flux measurement
-    period : scalar
-        Period to each that light curve will be folded
-    duration : scalar
-        The transit duration to consider in the same units
-        as ``time``
-    oversample : int
-        Resolution of the transit search
-
-    Returns
-    -------
-    bins : array-like
-        Bins over the phase
-    depth : scalar
-        Maximum likelihood depth
-    depth_ivar : scalar
-        Inverse variance at the maximum likelihood depth
-    """
-
-    d_bin = duration / oversample
-    bins = np.arange(0, period+d_bin, d_bin)
-    len_bins = len(bins)
-    phase = time % period
-
-    # Bin the folded data into a fine grid
-    mean_flux_ivar, _ = histogram(phase, len_bins, range=(0, period),
-                                  weights=flux_ivar)
-    mean_flux, _ = histogram(phase, len_bins, range=(0, period),
-                             weights=flux*flux_ivar)
-
-    # Pre-compute some of the factors for the likelihood calculation
-    sum_flux2_all = np.sum(flux**2 * flux_ivar)
-
-    # Pad the arrays to deal with edge issues
-    mean_flux = np.append(mean_flux, mean_flux[:oversample])
-    mean_flux_ivar = np.append(mean_flux_ivar, mean_flux_ivar[:oversample])
-
-    # Compute the maximum likelihood values and variance for in-transit (hin)
-    # and out-of-transit (hout) flux estimates
-    hin_ivar = np.cumsum(mean_flux_ivar)
-    sum_ivar_all = hin_ivar[-oversample-1]
-    hin_ivar = hin_ivar[oversample:] - hin_ivar[:-oversample]
-    hin = np.cumsum(mean_flux)
-    sum_flux_all = hin[-oversample-1]
-    hin = hin[oversample:] - hin[:-oversample]
-
-    hout_ivar = sum_ivar_all - hin_ivar
-    hout = sum_flux_all - hin
-
-    # Normalize in the in- and out-of-transit flux estimates
-    hout /= hout_ivar
-    hin /= hin_ivar
-
-    # Compute the depth estimate
-    depth = hout - hin
-    depth_ivar = 1.0 / (1.0/hin_ivar + 1.0/hout_ivar)
-
-    # Compute the log-likelihood
-    hout2 = hout**2
-    chi2 = sum_flux2_all - 2*hout*sum_flux_all + hout2*sum_ivar_all
-    chi2 += ((hin**2-hout2) + 2*depth*hin)*hin_ivar
-
-    return bins, depth, depth_ivar, -0.5*chi2
 
 
 def transit_periodogram(time, flux, periods, durations, flux_err=None,
@@ -146,10 +58,6 @@ def transit_periodogram(time, flux, periods, durations, flux_err=None,
     except TypeError:
         raise ValueError("oversample must be an integer,"
                          " got {0}".format(oversample))
-
-    if not HAS_FAST_HISTOGRAM:
-        logging.warn("transit_periodogram has better performance with "
-                     "the fast_histogram package installed")
 
     if method is None:
         method = "snr"
