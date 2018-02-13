@@ -158,8 +158,8 @@ def transit_periodogram(time, flux, periods, durations, flux_err=None,
         raise ValueError("unrecognized method '{0}'\nallowed methods are: {1}"
                          .format(method, allowed_methods))
 
-    time = np.atleast_1d(time)
-    flux = np.atleast_1d(flux)
+    time = np.ascontiguousarray(time, dtype=np.float64)
+    flux = np.ascontiguousarray(flux, dtype=np.float64)
 
     if time.shape != flux.shape:
         raise ValueError("time and flux arrays have different shapes: "
@@ -167,8 +167,12 @@ def transit_periodogram(time, flux, periods, durations, flux_err=None,
     if flux_err is None:
         flux_err = np.ones_like(flux)
 
-    flux_err = np.atleast_1d(flux_err)
+    flux_err = np.ascontiguousarray(flux_err, dtype=np.float64)
     flux_ivar = 1.0 / flux_err**2
+
+    sum_flux2_all = np.sum(flux * flux * flux_ivar)
+    sum_flux_all = np.sum(flux * flux_ivar)
+    sum_ivar_all = np.sum(flux_ivar)
 
     periods = np.atleast_1d(periods)
     periodogram = -np.inf + np.zeros_like(periods)
@@ -176,34 +180,37 @@ def transit_periodogram(time, flux, periods, durations, flux_err=None,
     depth_snr = np.empty_like(periods)
     depths = np.empty_like(periods)
     depth_errs = np.empty_like(periods)
-    phase = np.empty_like(periods)
+    phases = np.empty_like(periods)
     best_durations = np.empty_like(periods)
 
     gen = periods
     if progress:
         gen = tqdm(periods, total=len(periods))
 
+    use_likelihood = (method == "likelihood")
     for duration in np.atleast_1d(np.abs(durations)):
         for i, period in enumerate(gen):
-            bins, depth, depth_ivar, ll = _fold(time, flux, flux_ivar, period,
-                                                duration, oversample)
-            snr = depth * np.sqrt(depth_ivar)
-            if method == "snr":
-                objective = snr
-            else:
+            depth, depth_var, ll, phase = _fold(time, flux, flux_ivar,
+                                                sum_flux2_all, sum_flux_all,
+                                                sum_ivar_all, period,
+                                                duration, oversample,
+                                                use_likelihood=use_likelihood)
+            snr = depth / np.sqrt(depth_var)
+            if use_likelihood:
                 objective = ll
+            else:
+                objective = snr
 
-            ind = np.argmax(objective)
-            if objective[ind] > periodogram[i]:
-                periodogram[i] = objective[ind]
-                log_likelihood[i] = ll[ind]
-                depth_snr[i] = snr[ind]
-                depths[i] = depth[ind]
-                depth_errs[i] = np.sqrt(1./depth_ivar[ind])
-                phase[i] = bins[ind] + 0.5 * duration
+            if objective > periodogram[i]:
+                periodogram[i] = objective
+                log_likelihood[i] = ll
+                depth_snr[i] = snr
+                depths[i] = depth
+                depth_errs[i] = np.sqrt(depth_var)
+                phases[i] = phase
                 best_durations[i] = duration
 
     return (
         periods, periodogram, log_likelihood, depth_snr, depths, depth_errs,
-        phase, best_durations
+        phases, best_durations
     )
