@@ -78,10 +78,6 @@ def _fold(time, flux, flux_ivar, period, duration, oversample):
     sum_flux_all = hin[-oversample-1]
     hin = hin[oversample:] - hin[:-oversample]
 
-    # Compute the in transit sums used to compute the likelihood
-    sum_ivar_in = np.array(hin_ivar)
-    sum_flux_in = np.array(hin)
-
     # Compute the out of transit flux estimate
     hout_ivar = np.sum(mean_flux_ivar) - hin_ivar
     hout = np.sum(mean_flux) - hin
@@ -97,7 +93,7 @@ def _fold(time, flux, flux_ivar, period, duration, oversample):
     # Compute the log-likelihood
     hout2 = hout**2
     chi2 = sum_flux2_all - 2*hout*sum_flux_all + hout2*sum_ivar_all
-    chi2 += (hin**2-hout2)*sum_ivar_in + 2*depth*sum_flux_in
+    chi2 += ((hin**2-hout2) + 2*depth*hin)*hin_ivar
 
     return bins, depth, depth_ivar, -0.5*chi2
 
