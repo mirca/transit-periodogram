@@ -96,27 +96,26 @@ def transit_periodogram(time, flux, periods, durations, flux_err=None,
         gen = tqdm(periods, total=len(periods))
 
     use_likelihood = (method == "likelihood")
-    for duration in np.atleast_1d(np.abs(durations)):
-        for i, period in enumerate(gen):
-            depth, depth_var, ll, phase = _fold(time, flux, flux_ivar,
-                                                sum_flux2_all, sum_flux_all,
-                                                sum_ivar_all, period,
-                                                duration, oversample,
-                                                use_likelihood=use_likelihood)
-            snr = depth / np.sqrt(depth_var)
-            if use_likelihood:
-                objective = ll
-            else:
-                objective = snr
+    durations = np.ascontiguousarray(np.atleast_1d(np.abs(durations)), dtype=np.float64)
+    for i, period in enumerate(gen):
+        depth, depth_var, ll, phase, duration = _fold(time, flux, flux_ivar,
+                                                      sum_flux2_all, sum_flux_all,
+                                                      sum_ivar_all, period,
+                                                      durations, oversample,
+                                                      use_likelihood=use_likelihood)
+        snr = depth / np.sqrt(depth_var)
+        if use_likelihood:
+            objective = ll
+        else:
+            objective = snr
 
-            if objective > periodogram[i]:
-                periodogram[i] = objective
-                log_likelihood[i] = ll
-                depth_snr[i] = snr
-                depths[i] = depth
-                depth_errs[i] = np.sqrt(depth_var)
-                phases[i] = phase
-                best_durations[i] = duration
+        periodogram[i] = objective
+        log_likelihood[i] = ll
+        depth_snr[i] = snr
+        depths[i] = depth
+        depth_errs[i] = np.sqrt(depth_var)
+        phases[i] = phase
+        best_durations[i] = duration
 
     return (
         periods, periodogram, log_likelihood, depth_snr, depths, depth_errs,

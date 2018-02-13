@@ -7,6 +7,9 @@ from libc.math cimport sqrt
 DTYPE = np.float64
 ctypedef np.float64_t DTYPE_t
 
+IDTYPE = np.int32
+ctypedef np.int32_t IDTYPE_t
+
 @cython.cdivision(True)
 @cython.boundscheck(False)
 @cython.wraparound(False)
@@ -17,11 +20,13 @@ def fold(np.ndarray[DTYPE_t, mode='c'] time,
          double sum_flux_all,
          double sum_ivar_all,
          double period,
-         double duration,
+         np.ndarray[DTYPE_t, mode='c'] durations,
          int oversample,
          int use_likelihood=0):
 
-    cdef double d_bin = duration / oversample
+    cdef double d_bin = max(durations) / oversample
+    cdef np.ndarray[IDTYPE_t] durations_dbin = np.asarray(durations / d_bin,
+                                                          dtype=IDTYPE)
     cdef int n_bins = int(period / d_bin) + oversample
     cdef np.ndarray[DTYPE_t] mean_flux = np.zeros(n_bins, dtype=DTYPE)
     cdef np.ndarray[DTYPE_t] mean_ivar = np.zeros(n_bins, dtype=DTYPE)
@@ -31,10 +36,13 @@ def fold(np.ndarray[DTYPE_t, mode='c'] time,
     cdef double* ivar_d = <double*>flux_ivar.data
     cdef double* mean_flux_d = <double*>mean_flux.data
     cdef double* mean_ivar_d = <double*>mean_ivar.data
+    cdef int* durations_dbin_d = <int*>durations_dbin.data
 
     cdef int ind
     cdef int n
+    cdef int k
     cdef int N = len(time)
+    cdef int K = len(durations)
 
     # Bin the data
     for n in range(N):
@@ -65,43 +73,62 @@ def fold(np.ndarray[DTYPE_t, mode='c'] time,
     cdef double best = -np.inf
     cdef double obj
 
-    cdef double best_depth, best_depth_var, best_ll, best_phase
+    cdef double best_depth, best_depth_var, best_ll, best_phase, best_duration
 
     for n in range(n_bins - oversample):
-        hin = mean_flux_d[n+oversample] - mean_flux_d[n]
-        hin_ivar = mean_ivar_d[n+oversample] - mean_ivar_d[n]
-        hout = sum_flux_all - hin
-        hout_ivar = sum_ivar_all - hin_ivar
+        for k in range(K):
+            hin = mean_flux_d[n+durations_dbin_d[k]] - mean_flux_d[n]
+            hin_ivar = mean_ivar_d[n+durations_dbin_d[k]] - mean_ivar_d[n]
+            hout = sum_flux_all - hin
+            hout_ivar = sum_ivar_all - hin_ivar
 
-        hin /= hin_ivar
-        hout /= hout_ivar
+            hin /= hin_ivar
+            hout /= hout_ivar
 
-        depth = hout - hin
-        if use_likelihood:
-            hout2 = hout * hout
-            obj = sum_flux2_all - 2*hout*sum_flux_all + hout2*sum_ivar_all
-            obj += ((hin**2-hout2) + 2*depth*hin)*hin_ivar
-            obj *= -0.5
-        else:
-            depth_var = 1.0 / hin_ivar + 1.0 / hout_ivar
-            obj = depth / sqrt(depth_var)
-
-        if obj > best:
+            depth = hout - hin
             if use_likelihood:
-                depth_var = 1.0 / hin_ivar + 1.0 / hout_ivar
-                depth_snr = depth / sqrt(depth_var)
-                ll = obj
-            else:
                 hout2 = hout * hout
-                ll = sum_flux2_all - 2*hout*sum_flux_all + hout2*sum_ivar_all
-                ll += ((hin**2-hout2) + 2*depth*hin)*hin_ivar
-                ll *= -0.5
+                obj = sum_flux2_all - 2*hout*sum_flux_all + hout2*sum_ivar_all
+                obj += ((hin**2-hout2) + 2*depth*hin)*hin_ivar
+                obj *= -0.5
+            else:
+                depth_var = 1.0 / hin_ivar + 1.0 / hout_ivar
+                obj = depth / sqrt(depth_var)
 
-            best = obj
+            if obj > best:
+                if use_likelihood:
+                    depth_var = 1.0 / hin_ivar + 1.0 / hout_ivar
+                    depth_snr = depth / sqrt(depth_var)
+                    ll = obj
+                else:
+                    hout2 = hout * hout
+                    ll = sum_flux2_all - 2*hout*sum_flux_all + hout2*sum_ivar_all
+                    ll += ((hin**2-hout2) + 2*depth*hin)*hin_ivar
+                    ll *= -0.5
 
-            best_depth = depth
-            best_depth_var = depth_var
-            best_ll = ll
-            best_phase = (n + 0.5) * d_bin
+                best = obj
+                best_depth = depth
+                best_depth_var = depth_var
+                best_ll = ll
+                best_phase = n * d_bin
+                best_duration = durations_dbin_d[k] * d_bin
 
-    return best_depth, best_depth_var, best_ll, best_phase
+    return best_depth, best_depth_var, best_ll, best_phase, best_duration
+
+
+#@cython.cdivision(True)
+#@cython.boundscheck(False)
+#@cython.wraparound(False)
+#def transit_periodogram(np.ndarray[DTYPE_t, mode='c'] time,
+#                        np.ndarray[DTYPE_t, mode='c'] flux,
+#                        np.ndarray[DTYPE_t, mode='c'] periods,
+#                        np.ndarray[DTYPE_t, mode='c'] durations,
+#                        np.ndarray[DTYPE_t, mode='c'] flux_ivar,
+#                        int oversample,
+#                        int use_likelihood=0):
+#
+#    cdef double* time_d = <double*>time.data
+#    cdef double* flux_d = <double*>flux.data
+#    cdef double* periods_d = <double*>periods.data
+#    cdef double* durations_d = <double*>durations.data
+#
