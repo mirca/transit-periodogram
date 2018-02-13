@@ -10,9 +10,9 @@ except ImportError:
     tqdm = lambda x, *args, **kwargs: x
 
 try:
-    from fast_histogram import histogram1d
-    def histogram(*args, **kwargs):
-        return histogram1d(*args, **kwargs), None
+    from fast_histogram import _histogram1d_weighted
+    def histogram(x, bins, range, weights=None):
+        return _histogram1d_weighted(x, weights, bins, range[0], range[1]), None
 except ImportError:
     histogram = np.histogram
 
