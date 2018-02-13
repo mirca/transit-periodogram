@@ -9,6 +9,13 @@ try:
 except ImportError:
     tqdm = lambda x, *args, **kwargs: x
 
+try:
+    from fast_histogram import histogram1d
+    def histogram(*args, **kwargs):
+        return histogram1d(*args, **kwargs), None
+except ImportError:
+    histogram = np.histogram
+
 
 __all__ = ["transit_periodogram"]
 
@@ -46,11 +53,14 @@ def _fold(time, flux, flux_ivar, period, duration, oversample):
 
     d_bin = duration / oversample
     bins = np.arange(0, period+d_bin, d_bin)
+    len_bins = len(bins)
     phase = time % period
 
     # Bin the folded data into a fine grid
-    mean_flux_ivar, _ = np.histogram(phase, bins, weights=flux_ivar)
-    mean_flux, _ = np.histogram(phase, bins, weights=flux*flux_ivar)
+    mean_flux_ivar, _ = histogram(phase, len_bins, range=(0, period),
+                                  weights=flux_ivar)
+    mean_flux, _ = histogram(phase, len_bins, range=(0, period),
+                             weights=flux*flux_ivar)
 
     # Pre-compute some of the factors for the likelihood calculation
     sum_ivar_all = np.sum(mean_flux_ivar)
