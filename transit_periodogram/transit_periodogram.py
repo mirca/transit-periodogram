@@ -9,7 +9,7 @@ try:
 except ImportError:
     tqdm = lambda x, *args, **kwargs: x
 
-from .transit_periodogram_impl import fold as _fold
+from .transit_periodogram_impl import transit_periodogram_impl
 
 
 __all__ = ["transit_periodogram"]
@@ -78,46 +78,39 @@ def transit_periodogram(time, flux, periods, durations, flux_err=None,
     flux_err = np.ascontiguousarray(flux_err, dtype=np.float64)
     flux_ivar = 1.0 / flux_err**2
 
-    sum_flux2_all = np.sum(flux * flux * flux_ivar)
-    sum_flux_all = np.sum(flux * flux_ivar)
-    sum_ivar_all = np.sum(flux_ivar)
-
     periods = np.atleast_1d(periods)
-    periodogram = -np.inf + np.zeros_like(periods)
-    log_likelihood = np.empty_like(periods)
-    depth_snr = np.empty_like(periods)
-    depths = np.empty_like(periods)
-    depth_errs = np.empty_like(periods)
-    phases = np.empty_like(periods)
-    best_durations = np.empty_like(periods)
+    #periodogram = -np.inf + np.zeros_like(periods)
+    #log_likelihood = np.empty_like(periods)
+    #depth_snr = np.empty_like(periods)
+    #depths = np.empty_like(periods)
+    #depth_errs = np.empty_like(periods)
+    #phases = np.empty_like(periods)
+    #best_durations = np.empty_like(periods)
 
-    gen = periods
-    if progress:
-        gen = tqdm(periods, total=len(periods))
+    #gen = periods
+    #if progress:
+    #    gen = tqdm(periods, total=len(periods))
 
     use_likelihood = (method == "likelihood")
     durations = np.ascontiguousarray(np.atleast_1d(np.abs(durations)), dtype=np.float64)
-    for i, period in enumerate(gen):
-        depth, depth_var, ll, phase, duration = _fold(time, flux, flux_ivar,
-                                                      sum_flux2_all, sum_flux_all,
-                                                      sum_ivar_all, period,
-                                                      durations, oversample,
-                                                      use_likelihood=use_likelihood)
-        snr = depth / np.sqrt(depth_var)
-        if use_likelihood:
-            objective = ll
-        else:
-            objective = snr
+    #for i, period in enumerate(gen):
+    #    depth, depth_var, ll, phase, duration = _fold(time, flux, flux_ivar,
+    #                                                  sum_flux2_all, sum_flux_all,
+    #                                                  sum_ivar_all, period,
+    #                                                  durations, oversample,
+    #                                                  use_likelihood=use_likelihood)
+    #    snr = depth / np.sqrt(depth_var)
+    #    if use_likelihood:
+    #        objective = ll
+    #    else:
+    #        objective = snr
 
-        periodogram[i] = objective
-        log_likelihood[i] = ll
-        depth_snr[i] = snr
-        depths[i] = depth
-        depth_errs[i] = np.sqrt(depth_var)
-        phases[i] = phase
-        best_durations[i] = duration
-
-    return (
-        periods, periodogram, log_likelihood, depth_snr, depths, depth_errs,
-        phases, best_durations
-    )
+    #    periodogram[i] = objective
+    #    log_likelihood[i] = ll
+    #    depth_snr[i] = snr
+    #    depths[i] = depth
+    #    depth_errs[i] = np.sqrt(depth_var)
+    #    phases[i] = phase
+    #    best_durations[i] = duration
+    return transit_periodogram_impl(time, flux, flux_ivar, periods, durations,
+                                    oversample, use_likelihood=use_likelihood)

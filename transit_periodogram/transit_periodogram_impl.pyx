@@ -13,36 +13,29 @@ ctypedef np.int32_t IDTYPE_t
 @cython.cdivision(True)
 @cython.boundscheck(False)
 @cython.wraparound(False)
-def fold(np.ndarray[DTYPE_t, mode='c'] time,
-         np.ndarray[DTYPE_t, mode='c'] flux,
-         np.ndarray[DTYPE_t, mode='c'] flux_ivar,
-         double sum_flux2_all,
-         double sum_flux_all,
-         double sum_ivar_all,
-         double period,
-         np.ndarray[DTYPE_t, mode='c'] durations,
-         int oversample,
-         int use_likelihood=0):
+cdef fold(int N, # len time
+          double* time_d,
+          double* flux_d,
+          double* ivar_d,
+          double sum_flux2_all,
+          double sum_flux_all,
+          double sum_ivar_all,
+          double period,
+          int K, # len durations
+          int* durations_dbin_d,
+          double d_bin,
+          int oversample,
+          int use_likelihood=0):
 
-    cdef double d_bin = max(durations) / oversample
-    cdef np.ndarray[IDTYPE_t] durations_dbin = np.asarray(durations / d_bin,
-                                                          dtype=IDTYPE)
     cdef int n_bins = int(period / d_bin) + oversample
     cdef np.ndarray[DTYPE_t] mean_flux = np.zeros(n_bins, dtype=DTYPE)
     cdef np.ndarray[DTYPE_t] mean_ivar = np.zeros(n_bins, dtype=DTYPE)
-
-    cdef double* time_d = <double*>time.data
-    cdef double* flux_d = <double*>flux.data
-    cdef double* ivar_d = <double*>flux_ivar.data
     cdef double* mean_flux_d = <double*>mean_flux.data
     cdef double* mean_ivar_d = <double*>mean_ivar.data
-    cdef int* durations_dbin_d = <int*>durations_dbin.data
 
     cdef int ind
     cdef int n
     cdef int k
-    cdef int N = len(time)
-    cdef int K = len(durations)
 
     # Bin the data
     for n in range(N):
@@ -113,22 +106,54 @@ def fold(np.ndarray[DTYPE_t, mode='c'] time,
                 best_phase = n * d_bin
                 best_duration = durations_dbin_d[k] * d_bin
 
-    return best_depth, best_depth_var, best_ll, best_phase, best_duration
+    return best, best_depth, best_depth_var, best_ll, best_phase, best_duration
 
 
-#@cython.cdivision(True)
-#@cython.boundscheck(False)
-#@cython.wraparound(False)
-#def transit_periodogram(np.ndarray[DTYPE_t, mode='c'] time,
-#                        np.ndarray[DTYPE_t, mode='c'] flux,
-#                        np.ndarray[DTYPE_t, mode='c'] periods,
-#                        np.ndarray[DTYPE_t, mode='c'] durations,
-#                        np.ndarray[DTYPE_t, mode='c'] flux_ivar,
-#                        int oversample,
-#                        int use_likelihood=0):
-#
-#    cdef double* time_d = <double*>time.data
-#    cdef double* flux_d = <double*>flux.data
-#    cdef double* periods_d = <double*>periods.data
-#    cdef double* durations_d = <double*>durations.data
-#
+@cython.cdivision(True)
+@cython.boundscheck(False)
+@cython.wraparound(False)
+def transit_periodogram_impl(np.ndarray[DTYPE_t, mode='c'] time,
+                        np.ndarray[DTYPE_t, mode='c'] flux,
+                        np.ndarray[DTYPE_t, mode='c'] flux_ivar,
+                        np.ndarray[DTYPE_t, mode='c'] periods,
+                        np.ndarray[DTYPE_t, mode='c'] durations,
+                        int oversample,
+                        int use_likelihood=0):
+
+    cdef double d_bin = max(durations) / oversample
+    cdef double* periods_d = <double*>periods.data
+    cdef np.ndarray[IDTYPE_t] durations_dbin = np.asarray(durations / d_bin,
+                                                          dtype=IDTYPE)
+    cdef double* time_d = <double*>time.data
+    cdef double* flux_d = <double*>flux.data
+    cdef double* ivar_d = <double*>flux_ivar.data
+    cdef int* durations_dbin_d = <int*>durations_dbin.data
+    cdef int N = len(time)
+    cdef int K = len(durations)
+
+    cdef int p
+    cdef int i = 0
+    cdef int P = len(periods)
+    cdef double depth, depth_var, ll, phase, duration
+
+    cdef double sum_flux2_all = np.sum(flux * flux * flux_ivar)
+    cdef double sum_flux_all = np.sum(flux * flux_ivar)
+    cdef double sum_ivar_all = np.sum(flux_ivar)
+    cdef np.ndarray[DTYPE_t] periodogram = np.empty(P, dtype=DTYPE)
+    cdef np.ndarray[DTYPE_t] depths = np.empty(P, dtype=DTYPE)
+    cdef np.ndarray[DTYPE_t] depths_snr = np.empty(P, dtype=DTYPE)
+    cdef np.ndarray[DTYPE_t] depths_var = np.empty(P, dtype=DTYPE)
+    cdef np.ndarray[DTYPE_t] lls = np.empty(P, dtype=DTYPE)
+    cdef np.ndarray[DTYPE_t] phases = np.empty(P, dtype=DTYPE)
+    cdef np.ndarray[DTYPE_t] best_durations = np.empty(P, dtype=DTYPE)
+
+    for p in range(P):
+        periodogram[p], depths[p], depths_var[p], lls[p], phases[p], best_durations[p] = \
+                fold(N, time_d, flux_d, ivar_d, sum_flux2_all, sum_flux_all,
+                     sum_ivar_all, periods_d[p], K, durations_dbin_d, d_bin,
+                     oversample, use_likelihood)
+        depths_snr[p] = depths[p] / sqrt(depths_var[p])
+
+    return (periods, periodogram, lls, depths_snr, depths, np.sqrt(depths_var),
+            phases, best_durations)
+
