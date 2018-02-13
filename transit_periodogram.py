@@ -11,7 +11,8 @@ except ImportError:
 
 try:
     from fast_histogram import histogram1d
-    histogram = histogram1d
+    def histogram(*args, **kwargs):
+        return histogram1d(*args, **kwargs), None
 except ImportError:
     histogram = np.histogram
 
@@ -56,8 +57,10 @@ def _fold(time, flux, flux_ivar, period, duration, oversample):
     phase = time % period
 
     # Bin the folded data into a fine grid
-    mean_flux_ivar, _ = histogram(phase, len_bins, range=(0, period), weights=flux_ivar)
-    mean_flux, _ = histogram(phase, len_bins, range=(0, period), weights=flux*flux_ivar)
+    mean_flux_ivar, _ = histogram(phase, len_bins, range=(0, period),
+                                  weights=flux_ivar)
+    mean_flux, _ = histogram(phase, len_bins, range=(0, period),
+                             weights=flux*flux_ivar)
 
     # Pre-compute some of the factors for the likelihood calculation
     sum_ivar_all = np.sum(mean_flux_ivar)
