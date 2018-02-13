@@ -3,7 +3,6 @@
 from __future__ import division, print_function
 
 import numpy as np
-import six
 
 try:
     from tqdm import tqdm
@@ -44,10 +43,6 @@ def _fold(time, flux, flux_ivar, period, duration, oversample):
     depth_ivar : scalar
         Inverse variance at the maximum likelihood depth
     """
-
-    if not isinstance(oversample, six.integer_types):
-        raise ValueError("oversample must be an integer, got {0}"
-                         .format(oversample))
 
     d_bin = duration / oversample
     bins = np.arange(0, period+d_bin, d_bin)
@@ -130,6 +125,12 @@ def transit_periodogram(time, flux, periods, durations, flux_err=None,
     phase : array-like
         Mid-transit times
     """
+    try:
+        oversample = int(oversample)
+    except TypeError:
+        raise ValueError("oversample must be an integer,"
+                         " got {0}".format(oversample))
+
     if method is None:
         method = "snr"
     allowed_methods = ["snr", "likelihood"]
