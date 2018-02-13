@@ -53,34 +53,52 @@ def _fold(time, flux, flux_ivar, period, duration, oversample):
     bins = np.arange(0, period+d_bin, d_bin)
     phase = time % period
 
+    # Bin the folded data into a fine grid
     mean_flux_ivar, _ = np.histogram(phase, bins, weights=flux_ivar)
     mean_flux, _ = np.histogram(phase, bins, weights=flux*flux_ivar)
-    mask_ivar = mean_flux_ivar > 0 # avoiding division by zero
-    mean_flux[mask_ivar] /= mean_flux_ivar[mask_ivar]
+
+    # Pre-compute some of the factors for the likelihood calculation
+    sum_ivar_all = np.sum(mean_flux_ivar)
+    sum_flux_all = np.sum(mean_flux)
+    sum_flux2_all = np.sum(flux**2 * flux_ivar)
+
+    # Pad the arrays to deal with edge issues
     mean_flux = np.append(mean_flux, mean_flux[:oversample])
     mean_flux_ivar = np.append(mean_flux_ivar, mean_flux_ivar[:oversample])
 
-    # computes the maximum likelihood heights
-    # and their variance for in-transit (hin) and out-transit (hout)
+    # Compute the maximum likelihood values and variance for in-transit (hin)
+    # and out-of-transit (hout) flux estimates
     hin_ivar = np.cumsum(mean_flux_ivar)
     hin_ivar = hin_ivar[oversample:] - hin_ivar[:-oversample]
-    hin = np.cumsum(mean_flux * mean_flux_ivar)
+    hin = np.cumsum(mean_flux)
     hin = hin[oversample:] - hin[:-oversample]
 
-    hout_ivar = np.sum(mean_flux_ivar) - hin_ivar
-    hout = np.sum(mean_flux * mean_flux_ivar) - hin
+    # Compute the in transit sums used to compute the likelihood
+    sum_ivar_in = np.array(hin_ivar)
+    sum_flux_in = np.array(hin)
 
+    # Compute the out of transit flux estimate
+    hout_ivar = np.sum(mean_flux_ivar) - hin_ivar
+    hout = np.sum(mean_flux) - hin
+
+    # Normalize in the in- and out-of-transit flux estimates
     hout /= hout_ivar
     hin /= hin_ivar
 
+    # Compute the depth estimate
     depth = hout - hin
     depth_ivar = 1.0 / (1.0/hin_ivar + 1.0/hout_ivar)
 
-    return bins, depth, depth_ivar
+    # Compute the log-likelihood
+    hout2 = hout**2
+    chi2 = sum_flux2_all - 2*hout*sum_flux_all + hout2*sum_ivar_all
+    chi2 += (hin**2-hout2)*sum_ivar_in + 2*depth*sum_flux_in
+
+    return bins, depth, depth_ivar, -0.5*chi2
 
 
-def transit_periodogram(time, flux, periods, duration, flux_err=None,
-                        oversample=10, progress=False):
+def transit_periodogram(time, flux, periods, durations, flux_err=None,
+                        oversample=10, progress=False, method=None):
     """Compute the transit periodogram for a light curve.
 
     Parameters
@@ -91,8 +109,8 @@ def transit_periodogram(time, flux, periods, duration, flux_err=None,
         Array of measured fluxes at ``time``
     periods : array-like
         The periods to search in the same units as ``time``
-    duration : scalar
-        The transit duration to consider in the same units
+    durations : array-like
+        The transit durations to consider in the same units
         as ``time``
     flux_err : array-like
         The uncertainties on ``flux``
@@ -112,6 +130,13 @@ def transit_periodogram(time, flux, periods, duration, flux_err=None,
     phase : array-like
         Mid-transit times
     """
+    if method is None:
+        method = "snr"
+    allowed_methods = ["snr", "likelihood"]
+    if method not in allowed_methods:
+        raise ValueError("unrecognized method '{0}'\nallowed methods are: {1}"
+                         .format(method, allowed_methods))
+
     time = np.atleast_1d(time)
     flux = np.atleast_1d(flux)
 
@@ -125,23 +150,39 @@ def transit_periodogram(time, flux, periods, duration, flux_err=None,
     flux_ivar = 1.0 / flux_err**2
 
     periods = np.atleast_1d(periods)
+    periodogram = -np.inf + np.zeros_like(periods)
+    log_likelihood = np.empty_like(periods)
     depth_snr = np.empty_like(periods)
     depths = np.empty_like(periods)
     depth_errs = np.empty_like(periods)
     phase = np.empty_like(periods)
+    best_durations = np.empty_like(periods)
 
     gen = periods
     if progress:
         gen = tqdm(periods, total=len(periods))
 
-    for i, period in enumerate(gen):
-        bins, depth, depth_ivar = _fold(time, flux, flux_ivar, period,
-                                        duration, oversample)
-        objective = depth * np.sqrt(depth_ivar) # depth S/N
-        ind = np.argmax(objective)
-        depth_snr[i] = objective[ind]
-        depths[i] = depth[ind]
-        depth_errs[i] = np.sqrt(1./depth_ivar[ind])
-        phase[i] = bins[ind] + 0.5 * duration
+    for duration in np.atleast_1d(np.abs(durations)):
+        for i, period in enumerate(gen):
+            bins, depth, depth_ivar, ll = _fold(time, flux, flux_ivar, period,
+                                                duration, oversample)
+            snr = depth * np.sqrt(depth_ivar)
+            if method == "snr":
+                objective = snr
+            else:
+                objective = ll
 
-    return periods, depth_snr, depths, depth_errs, phase
+            ind = np.argmax(objective)
+            if objective[ind] > periodogram[i]:
+                periodogram[i] = objective[ind]
+                log_likelihood[i] = ll[ind]
+                depth_snr[i] = snr[ind]
+                depths[i] = depth[ind]
+                depth_errs[i] = np.sqrt(1./depth_ivar[ind])
+                phase[i] = bins[ind] + 0.5 * duration
+                best_durations[i] = duration
+
+    return (
+        periods, periodogram, log_likelihood, depth_snr, depths, depth_errs,
+        phase, best_durations
+    )
