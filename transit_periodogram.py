@@ -2,6 +2,7 @@
 
 from __future__ import division, print_function
 
+import logging
 import numpy as np
 
 try:
@@ -10,11 +11,14 @@ except ImportError:
     tqdm = lambda x, *args, **kwargs: x
 
 try:
-    from fast_histogram import _histogram1d_weighted
-    def histogram(x, bins, range, weights=None):
-        return _histogram1d_weighted(x, weights, bins, range[0], range[1]), None
+    from fast_histogram import histogram1d
 except ImportError:
+    HAS_FAST_HISTOGRAM = False
     histogram = np.histogram
+else:
+    HAS_FAST_HISTOGRAM = True
+    def histogram(*args, **kwargs):
+        return histogram1d(*args, **kwargs), None
 
 
 __all__ = ["transit_periodogram"]
@@ -78,7 +82,6 @@ def _fold(time, flux, flux_ivar, period, duration, oversample):
     sum_flux_all = hin[-oversample-1]
     hin = hin[oversample:] - hin[:-oversample]
 
-    # Compute the out of transit flux estimate
     hout_ivar = np.sum(mean_flux_ivar) - hin_ivar
     hout = np.sum(mean_flux) - hin
 
@@ -115,6 +118,10 @@ def transit_periodogram(time, flux, periods, durations, flux_err=None,
         as ``time``
     flux_err : array-like
         The uncertainties on ``flux``
+    method :
+        The periodogram type. Allowed values (a) ``snr`` to select on depth
+        signal-to-noise ratio, (b) ``likelihood`` the log-likelihood of the
+        model
 
     Returns
     -------
@@ -130,12 +137,17 @@ def transit_periodogram(time, flux, periods, durations, flux_err=None,
         for each period
     phase : array-like
         Mid-transit times
+
     """
     try:
         oversample = int(oversample)
     except TypeError:
         raise ValueError("oversample must be an integer,"
                          " got {0}".format(oversample))
+
+    if not HAS_FAST_HISTOGRAM:
+        logging.warn("transit_periodogram has better performance with "
+                     "the fast_histogram package installed")
 
     if method is None:
         method = "snr"
