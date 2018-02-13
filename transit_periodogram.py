@@ -63,8 +63,6 @@ def _fold(time, flux, flux_ivar, period, duration, oversample):
                              weights=flux*flux_ivar)
 
     # Pre-compute some of the factors for the likelihood calculation
-    sum_ivar_all = np.sum(mean_flux_ivar)
-    sum_flux_all = np.sum(mean_flux)
     sum_flux2_all = np.sum(flux**2 * flux_ivar)
 
     # Pad the arrays to deal with edge issues
@@ -74,8 +72,10 @@ def _fold(time, flux, flux_ivar, period, duration, oversample):
     # Compute the maximum likelihood values and variance for in-transit (hin)
     # and out-of-transit (hout) flux estimates
     hin_ivar = np.cumsum(mean_flux_ivar)
+    sum_ivar_all = hin_ivar[-oversample-1]
     hin_ivar = hin_ivar[oversample:] - hin_ivar[:-oversample]
     hin = np.cumsum(mean_flux)
+    sum_flux_all = hin[-oversample-1]
     hin = hin[oversample:] - hin[:-oversample]
 
     # Compute the in transit sums used to compute the likelihood
