@@ -20,11 +20,13 @@ else:
     def histogram(*args, **kwargs):
         return histogram1d(*args, **kwargs), None
 
+from .transit_periodogram_impl import fold as _fold
+
 
 __all__ = ["transit_periodogram"]
 
 
-def _fold(time, flux, flux_ivar, period, duration, oversample):
+def __fold(time, flux, flux_ivar, period, duration, oversample):
     """
     Folds and bins the flux array at `period` and computes
     the maximum likelihood depth.
@@ -82,8 +84,8 @@ def _fold(time, flux, flux_ivar, period, duration, oversample):
     sum_flux_all = hin[-oversample-1]
     hin = hin[oversample:] - hin[:-oversample]
 
-    hout_ivar = np.sum(mean_flux_ivar) - hin_ivar
-    hout = np.sum(mean_flux) - hin
+    hout_ivar = sum_ivar_all - hin_ivar
+    hout = sum_flux_all - hin
 
     # Normalize in the in- and out-of-transit flux estimates
     hout /= hout_ivar
