@@ -1,0 +1,16 @@
+language: python
+python:
+  - 2.7
+  - 3.6
+before_install:
+  - sudo apt-get install -y python-numpy python-scipy
+  - pip install Cython
+  - pip install codecov
+  - pip install pytest-cov
+# command to run tests
+script:
+  - python setup.py build_ext --inplace
+  - pytest
+
+after_sucess:
+  - codecov
