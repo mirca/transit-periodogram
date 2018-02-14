@@ -113,6 +113,7 @@ cdef void fold(
                     log_like = compute_log_like(flux_in, flux_out, ivar_in,
                                           sum_flux2, sum_flux,
                                           sum_ivar)
+                    depth_snr = objective
 
                 best_objective[0] = objective
                 best_depth[0] = depth
