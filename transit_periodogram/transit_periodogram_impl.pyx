@@ -60,13 +60,13 @@ cdef fold(int N, # len time
     cdef double hin_ivar
     cdef double hout_ivar
     cdef double depth
-    cdef double depth_var
+    cdef double depth_std
     cdef double depth_snr
     cdef double hout2
     cdef double best = -np.inf
     cdef double obj
 
-    cdef double best_depth, best_depth_var, best_ll, best_phase, best_duration
+    cdef double best_depth, best_depth_std, best_ll, best_phase, best_duration
 
     for n in range(n_bins - oversample):
         for k in range(K):
@@ -85,13 +85,13 @@ cdef fold(int N, # len time
                 obj += ((hin**2-hout2) + 2*depth*hin)*hin_ivar
                 obj *= -0.5
             else:
-                depth_var = 1.0 / hin_ivar + 1.0 / hout_ivar
-                obj = depth / sqrt(depth_var)
+                depth_std = sqrt(1.0 / hin_ivar + 1.0 / hout_ivar)
+                obj = depth / depth_std
 
             if obj > best:
                 if use_likelihood:
-                    depth_var = 1.0 / hin_ivar + 1.0 / hout_ivar
-                    depth_snr = depth / sqrt(depth_var)
+                    depth_std = sqrt(1.0 / hin_ivar + 1.0 / hout_ivar)
+                    depth_snr = depth / depth_std
                     ll = obj
                 else:
                     hout2 = hout * hout
@@ -101,12 +101,12 @@ cdef fold(int N, # len time
 
                 best = obj
                 best_depth = depth
-                best_depth_var = depth_var
+                best_depth_std = depth_std
                 best_ll = ll
                 best_phase = n * d_bin
                 best_duration = durations_dbin_d[k] * d_bin
 
-    return best, best_depth, best_depth_var, best_ll, best_phase, best_duration
+    return best, best_depth, best_depth_std, best_ll, best_phase, best_duration
 
 
 @cython.cdivision(True)
@@ -132,9 +132,7 @@ def transit_periodogram_impl(np.ndarray[DTYPE_t, mode='c'] time,
     cdef int K = len(durations)
 
     cdef int p
-    cdef int i = 0
     cdef int P = len(periods)
-    cdef double depth, depth_var, ll, phase, duration
 
     cdef double sum_flux2_all = np.sum(flux * flux * flux_ivar)
     cdef double sum_flux_all = np.sum(flux * flux_ivar)
@@ -142,18 +140,17 @@ def transit_periodogram_impl(np.ndarray[DTYPE_t, mode='c'] time,
     cdef np.ndarray[DTYPE_t] periodogram = np.empty(P, dtype=DTYPE)
     cdef np.ndarray[DTYPE_t] depths = np.empty(P, dtype=DTYPE)
     cdef np.ndarray[DTYPE_t] depths_snr = np.empty(P, dtype=DTYPE)
-    cdef np.ndarray[DTYPE_t] depths_var = np.empty(P, dtype=DTYPE)
+    cdef np.ndarray[DTYPE_t] depths_std = np.empty(P, dtype=DTYPE)
     cdef np.ndarray[DTYPE_t] lls = np.empty(P, dtype=DTYPE)
     cdef np.ndarray[DTYPE_t] phases = np.empty(P, dtype=DTYPE)
     cdef np.ndarray[DTYPE_t] best_durations = np.empty(P, dtype=DTYPE)
 
     for p in range(P):
-        periodogram[p], depths[p], depths_var[p], lls[p], phases[p], best_durations[p] = \
+        periodogram[p], depths[p], depths_std[p], lls[p], phases[p], best_durations[p] = \
                 fold(N, time_d, flux_d, ivar_d, sum_flux2_all, sum_flux_all,
                      sum_ivar_all, periods_d[p], K, durations_dbin_d, d_bin,
                      oversample, use_likelihood)
-        depths_snr[p] = depths[p] / sqrt(depths_var[p])
+        depths_snr[p] = depths[p] / depths_std[p]
 
-    return (periods, periodogram, lls, depths_snr, depths, np.sqrt(depths_var),
+    return (periods, periodogram, lls, depths_snr, depths, depths_std,
             phases, best_durations)
-
