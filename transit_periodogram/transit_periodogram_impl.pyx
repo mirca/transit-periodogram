@@ -73,30 +73,40 @@ cdef void fold(
     cdef double flux_in, flux_out, ivar_in, ivar_out, \
                 depth, depth_std, depth_snr, log_like, objective
 
+    # This first pass bins the data into a fine-grain grid in phase from zero
+    # to period and computes the weighted sum and inverse variance for each
+    # bin.
     for n in range(n_bins):
         mean_flux[n] = 0.0
         mean_ivar[n] = 0.0
-
-    # Bin the data
     for n in range(N):
         ind = int((time[n] % period) / period * n_bins);
         mean_flux[ind] += flux[n] * ivar[n]
         mean_ivar[ind] += ivar[n]
 
-    # Pad the bins
+    # To simplify calculations below, we wrap the binned values around and pad
+    # the end of the array with the first ``oversample`` samples.
     for n in range(oversample):
         ind = n_bins-oversample+n
         mean_flux[ind] = mean_flux[n]
         mean_ivar[ind] = mean_ivar[n]
 
-    # Cumsum
+    # To compute the estimates of the in-transit flux, we need the sum of
+    # mean_flux and mean_ivar over a given set of transit points. To get this
+    # fast, we can compute the cumulative sum and then use differences between
+    # points separated by ``duration`` bins. Here we convert the mean arrays
+    # to cumulative sums.
     for n in range(1, n_bins):
         mean_flux[n] += mean_flux[n-1]
         mean_ivar[n] += mean_ivar[n-1]
 
+    # Then we loop over phases (in steps of n_bin) and durations and find the
+    # best fit value. By looping over durations here, we get to reuse a lot of
+    # the computations that we did above.
     best_objective[0] = -np.inf
     for n in range(n_bins - oversample):
         for k in range(K):
+            # Estimate the in-transit and out-of-transit flux
             flux_in = mean_flux[n+durations[k]] - mean_flux[n]
             ivar_in = mean_ivar[n+durations[k]] - mean_ivar[n]
             flux_out = sum_flux - flux_in
