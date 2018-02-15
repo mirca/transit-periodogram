@@ -3,7 +3,7 @@ from __future__ import division, print_function
 import numpy as np
 import pytest
 
-from .transit_periodogram import transit_periodogram
+from ..transit_periodogram import transit_periodogram
 
 
 @pytest.mark.parametrize("method", [("snr"), ("likelihood")])
