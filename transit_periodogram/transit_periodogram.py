@@ -16,7 +16,7 @@ __all__ = ["transit_periodogram"]
 
 
 def transit_periodogram(time, flux, periods, durations, flux_err=None,
-                        oversample=10, progress=False, method=None):
+                        oversample=10, method=None):
     """Compute the transit periodogram for a light curve.
 
     Parameters
@@ -40,18 +40,26 @@ def transit_periodogram(time, flux, periods, durations, flux_err=None,
     Returns
     -------
     periods : array-like
-        Trial periods
+        Set of trial periods
+    objective : array-like
+        Either depth signal-to-noise ratio or the loglikelihood evaluated at the
+        maximum likelihood estimate of the depth as a function of period
+        depending on ``method``
+    log_like : array-like
+        Loglikelihood evaluated at the maximum likelihood estimate of the depth
+        as a function of period
     depth_snr : array-like
-        Signal-to-noise ratio evaluated at the maximum likelihood depth
-        for each period
-    depths : array-like
-        Maximum likelihood depths for each period
+        Depth signal-to-noise ratio as a function of period
+    depth : array-like
+        Maximum likelihood estimate for the transit depth as a function of
+        period
     depth_errs : array-like
-        Uncertainties (1-sigma) associated with the maximum likelihood depth
-        for each period
+        Uncertainties (one standard deviation) associated with the maximum
+        likelihood depth as a function of period
     phase : array-like
-        Mid-transit times
-
+        Mid-transit time estimate as a function of period
+    duration : array-like
+        Transit duration estimate as a function of period
     """
     try:
         oversample = int(oversample)
@@ -60,7 +68,7 @@ def transit_periodogram(time, flux, periods, durations, flux_err=None,
                          " got {0}".format(oversample))
 
     if method is None:
-        method = "snr"
+        method = "likelihood"
     allowed_methods = ["snr", "likelihood"]
     if method not in allowed_methods:
         raise ValueError("unrecognized method '{0}'\nallowed methods are: {1}"
@@ -79,38 +87,9 @@ def transit_periodogram(time, flux, periods, durations, flux_err=None,
     flux_ivar = 1.0 / flux_err**2
 
     periods = np.atleast_1d(periods)
-    #periodogram = -np.inf + np.zeros_like(periods)
-    #log_likelihood = np.empty_like(periods)
-    #depth_snr = np.empty_like(periods)
-    #depths = np.empty_like(periods)
-    #depth_errs = np.empty_like(periods)
-    #phases = np.empty_like(periods)
-    #best_durations = np.empty_like(periods)
-
-    #gen = periods
-    #if progress:
-    #    gen = tqdm(periods, total=len(periods))
-
     use_likelihood = (method == "likelihood")
-    durations = np.ascontiguousarray(np.atleast_1d(np.abs(durations)), dtype=np.float64)
-    #for i, period in enumerate(gen):
-    #    depth, depth_var, ll, phase, duration = _fold(time, flux, flux_ivar,
-    #                                                  sum_flux2_all, sum_flux_all,
-    #                                                  sum_ivar_all, period,
-    #                                                  durations, oversample,
-    #                                                  use_likelihood=use_likelihood)
-    #    snr = depth / np.sqrt(depth_var)
-    #    if use_likelihood:
-    #        objective = ll
-    #    else:
-    #        objective = snr
+    durations = np.ascontiguousarray(np.atleast_1d(np.abs(durations)),
+                                     dtype=np.float64)
 
-    #    periodogram[i] = objective
-    #    log_likelihood[i] = ll
-    #    depth_snr[i] = snr
-    #    depths[i] = depth
-    #    depth_errs[i] = np.sqrt(depth_var)
-    #    phases[i] = phase
-    #    best_durations[i] = duration
     return transit_periodogram_impl(time, flux, flux_ivar, periods, durations,
                                     oversample, use_likelihood=use_likelihood)
