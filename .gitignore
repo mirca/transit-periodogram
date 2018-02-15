@@ -4,3 +4,4 @@ __pycache__
 build
 *.c
 *.so
+transit_periodogram.egg-info/
