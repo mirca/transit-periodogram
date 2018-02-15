@@ -68,10 +68,12 @@ cdef void fold(
     double* best_duration    # The best fitting duration in units of ``time``
 ):
 
-    cdef int n_bins = int(period / d_bin) + oversample + 1
+    cdef int n_bins = int(period / d_bin) + oversample
     cdef int ind, n, k
     cdef double flux_in, flux_out, ivar_in, ivar_out, \
                 depth, depth_std, depth_snr, log_like, objective
+
+    cdef double eps = np.finfo(DTYPE).eps
 
     # This first pass bins the data into a fine-grain grid in phase from zero
     # to period and computes the weighted sum and inverse variance for each
@@ -80,13 +82,13 @@ cdef void fold(
         mean_flux[n] = 0.0
         mean_ivar[n] = 0.0
     for n in range(N):
-        ind = int((time[n] % period) / period * n_bins) + 1
+        ind = int((time[n] % period) / period * n_bins)
         mean_flux[ind] += flux[n] * ivar[n]
         mean_ivar[ind] += ivar[n]
 
     # To simplify calculations below, we wrap the binned values around and pad
     # the end of the array with the first ``oversample`` samples.
-    for n in range(1, oversample+1):
+    for n in range(oversample):
         ind = n_bins-oversample+n
         mean_flux[ind] = mean_flux[n]
         mean_ivar[ind] = mean_ivar[n]
@@ -111,6 +113,9 @@ cdef void fold(
             ivar_in = mean_ivar[n+durations[k]] - mean_ivar[n]
             flux_out = sum_flux - flux_in
             ivar_out = sum_ivar - ivar_in
+
+            if ivar_in < eps or ivar_out < eps:
+                continue
 
             flux_in /= ivar_in
             flux_out /= ivar_out
@@ -156,7 +161,7 @@ def transit_periodogram_impl(
         int oversample,
         int use_likelihood=0):
 
-    cdef double d_bin = max(duration_array) / oversample
+    cdef double d_bin = np.min(duration_array) / (oversample+1)
     cdef double* periods = <double*>period_array.data
     cdef np.ndarray[IDTYPE_t] duration_int_array = \
             np.asarray(duration_array / d_bin, dtype=IDTYPE)
@@ -190,7 +195,7 @@ def transit_periodogram_impl(
     cdef double* out_phase     = <double*>out_phase_array.data
     cdef double* out_duration  = <double*>out_duration_array.data
 
-    cdef int max_n_bins = int(np.max(period_array) / d_bin) + oversample + 1
+    cdef int max_n_bins = int(np.max(period_array) / d_bin) + oversample
     cdef double* mean_flux = <double*>malloc(max_n_bins*sizeof(double))
     if not mean_flux:
         raise MemoryError()
