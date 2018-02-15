@@ -68,7 +68,7 @@ cdef void fold(
     double* best_duration    # The best fitting duration in units of ``time``
 ):
 
-    cdef int n_bins = int(period / d_bin) + oversample
+    cdef int n_bins = int(period / d_bin) + oversample + 1
     cdef int ind, n, k
     cdef double flux_in, flux_out, ivar_in, ivar_out, \
                 depth, depth_std, depth_snr, log_like, objective
@@ -80,13 +80,13 @@ cdef void fold(
         mean_flux[n] = 0.0
         mean_ivar[n] = 0.0
     for n in range(N):
-        ind = int((time[n] % period) / period * n_bins);
+        ind = int((time[n] % period) / period * n_bins) + 1
         mean_flux[ind] += flux[n] * ivar[n]
         mean_ivar[ind] += ivar[n]
 
     # To simplify calculations below, we wrap the binned values around and pad
     # the end of the array with the first ``oversample`` samples.
-    for n in range(oversample):
+    for n in range(1, oversample+1):
         ind = n_bins-oversample+n
         mean_flux[ind] = mean_flux[n]
         mean_ivar[ind] = mean_ivar[n]
@@ -190,7 +190,7 @@ def transit_periodogram_impl(
     cdef double* out_phase     = <double*>out_phase_array.data
     cdef double* out_duration  = <double*>out_duration_array.data
 
-    cdef int max_n_bins = int(np.max(period_array) / d_bin) + oversample
+    cdef int max_n_bins = int(np.max(period_array) / d_bin) + oversample + 1
     cdef double* mean_flux = <double*>malloc(max_n_bins*sizeof(double))
     if not mean_flux:
         raise MemoryError()
