@@ -82,7 +82,7 @@ cdef void fold(
         mean_flux[n] = 0.0
         mean_ivar[n] = 0.0
     for n in range(N):
-        ind = int((time[n] % period) / period * n_bins)
+        ind = int((time[n] % period) / d_bin)
         mean_flux[ind] += flux[n] * ivar[n]
         mean_ivar[ind] += ivar[n]
 
@@ -106,8 +106,8 @@ cdef void fold(
     # best fit value. By looping over durations here, we get to reuse a lot of
     # the computations that we did above.
     best_objective[0] = -np.inf
-    for n in range(n_bins - oversample):
-        for k in range(K):
+    for k in range(K):
+        for n in range(n_bins - durations[k]):
             # Estimate the in-transit and out-of-transit flux
             flux_in = mean_flux[n+durations[k]] - mean_flux[n]
             ivar_in = mean_ivar[n+durations[k]] - mean_ivar[n]
@@ -161,7 +161,7 @@ def transit_periodogram_impl(
         int oversample,
         int use_likelihood=0):
 
-    cdef double d_bin = np.min(duration_array) / (oversample+1)
+    cdef double d_bin = np.min(duration_array) / oversample
     cdef double* periods = <double*>period_array.data
     cdef np.ndarray[IDTYPE_t] duration_int_array = \
             np.asarray(duration_array / d_bin, dtype=IDTYPE)
