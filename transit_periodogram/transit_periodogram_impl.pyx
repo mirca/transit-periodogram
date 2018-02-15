@@ -32,30 +32,40 @@ cdef double compute_log_like(
 @cython.boundscheck(False)
 @cython.wraparound(False)
 cdef void fold(
-    int N,              # len time
-    double* time,
-    double* flux,
-    double* ivar,
-    double sum_flux2,
-    double sum_flux,
-    double sum_ivar,
-    double period,
-    int K,              # len durations
-    int* durations,     # in units of d_bin
-    double d_bin,
-    int oversample,
-    int use_likelihood,
-    double* mean_flux,  # must be at least n_bins long
-    double* mean_ivar,  # must be at least n_bins long
+    # Inputs
+    int N,              # Length of the time array
+    double* time,       # The list of timestamps
+    double* flux,       # The flux measured at ``time``
+    double* ivar,       # The inverse variance of the flux array
+    double sum_flux2,   # The precomputed value of sum(flux^2 * ivar)
+    double sum_flux,    # The precomputed value of sum(flux * ivar)
+    double sum_ivar,    # The precomputed value of sum(ivar)
+
+    double period,      # The period to test in units of ``time``
+
+    int K,              # Length of the durations array
+    int* durations,     # The durations to test in units of ``d_bin``
+    double d_bin,       # The width of the fine-grain bins to use in units of
+                        # ``time``
+    int oversample,     # The number of ``d_bin`` bins in the maximum duration
+
+    int use_likelihood, # A flag indicating the periodogram type
+                        # 0 - depth signal-to-noise
+                        # 1 - log likelihood
+
+    # Work arrays
+    double* mean_flux,  # These are two work arrays that must be at least
+    double* mean_ivar,  # n_bins = max(period/d_bin)+oversample long
 
     # Outputs
-    double* best_objective,
-    double* best_depth,
-    double* best_depth_std,
-    double* best_depth_snr,
-    double* best_log_like,
-    double* best_phase,
-    double* best_duration
+    double* best_objective,  # The value of the periodogram at maximum
+    double* best_depth,      # The estimated depth at maximum
+    double* best_depth_std,  # The uncertainty on ``best_depth``
+    double* best_depth_snr,  # The signal-to-noise ratio of the depth estimate
+    double* best_log_like,   # The log likelihood at maximum
+    double* best_phase,      # The phase of the mid-transit time in units of
+                             # ``time``
+    double* best_duration    # The best fitting duration in units of ``time``
 ):
 
     cdef int n_bins = int(period / d_bin) + oversample
@@ -120,7 +130,7 @@ cdef void fold(
                 best_depth_std[0] = depth_std
                 best_depth_snr[0] = depth_snr
                 best_log_like[0] = log_like
-                best_phase[0] = n * d_bin
+                best_phase[0] = n * d_bin + 0.5 * durations[k] * d_bin
                 best_duration[0] = durations[k] * d_bin
 
 
