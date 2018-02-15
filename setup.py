@@ -15,4 +15,6 @@ setup(
     name="transit_periodogram",
     packages=["transit_periodogram"],
     ext_modules=cythonize([ext]),
+    setup_require=['pytest-runner'],
+    test_require=['pytest', 'pytest-cov']
 )
