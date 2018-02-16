@@ -43,11 +43,11 @@ cdef void fold(
 
     double period,      # The period to test in units of ``time``
 
-    int K,              # Length of the durations array
-    int* durations,     # The durations to test in units of ``d_bin``
-    double d_bin,       # The width of the fine-grain bins to use in units of
+    int n_durations,    # Length of the durations array
+    int* durations,     # The durations to test in units of ``bin_duration``
+    double bin_duration,# The width of the fine-grain bins to use in units of
                         # ``time``
-    int oversample,     # The number of ``d_bin`` bins in the maximum duration
+    int oversample,     # The number of ``bin_duration`` bins in the maximum duration
 
     int use_likelihood, # A flag indicating the periodogram type
                         # 0 - depth signal-to-noise
@@ -55,7 +55,7 @@ cdef void fold(
 
     # Work arrays
     double* mean_flux,  # These are two work arrays that must be at least
-    double* mean_ivar,  # n_bins = max(period/d_bin)+oversample long
+    double* mean_ivar,  # n_bins = max(period/bin_duration)+oversample long
 
     # Outputs
     double* best_objective,  # The value of the periodogram at maximum
@@ -68,7 +68,7 @@ cdef void fold(
     double* best_log_like    # The log likelihood at maximum
 ):
 
-    cdef int n_bins = int(period / d_bin) + oversample
+    cdef int n_bins = int(period / bin_duration) + oversample
     cdef int ind, n, k
     cdef double flux_in, flux_out, ivar_in, ivar_out, \
                 depth, depth_std, depth_snr, log_like, objective
@@ -82,7 +82,7 @@ cdef void fold(
         mean_flux[n] = 0.0
         mean_ivar[n] = 0.0
     for n in range(N):
-        ind = int((time[n] % period) / d_bin) + 1
+        ind = int((time[n] % period) / bin_duration) + 1
         mean_flux[ind] += flux[n] * ivar[n]
         mean_ivar[ind] += ivar[n]
 
@@ -106,7 +106,7 @@ cdef void fold(
     # best fit value. By looping over durations here, we get to reuse a lot of
     # the computations that we did above.
     best_objective[0] = -np.inf
-    for k in range(K):
+    for k in range(n_durations):
         for n in range(n_bins-durations[k]+1):
             # Estimate the in-transit and out-of-transit flux
             flux_in = mean_flux[n+durations[k]] - mean_flux[n]
@@ -145,8 +145,8 @@ cdef void fold(
                 best_depth_std[0] = depth_std
                 best_depth_snr[0] = depth_snr
                 best_log_like[0] = log_like
-                best_phase[0] = n * d_bin
-                best_duration[0] = durations[k] * d_bin
+                best_phase[0] = n * bin_duration
+                best_duration[0] = durations[k] * bin_duration
 
 
 @cython.cdivision(True)
@@ -161,16 +161,16 @@ def transit_periodogram_impl(
         int oversample,
         int use_likelihood=0):
 
-    cdef double d_bin = np.min(duration_array) / oversample
+    cdef double bin_duration = np.min(duration_array) / oversample
     cdef double* periods = <double*>period_array.data
     cdef np.ndarray[IDTYPE_t] duration_int_array = \
-            np.asarray(duration_array / d_bin, dtype=IDTYPE)
+            np.asarray(duration_array / bin_duration, dtype=IDTYPE)
     cdef double* time = <double*>time_array.data
     cdef double* flux = <double*>flux_array.data
     cdef double* ivar = <double*>flux_ivar_array.data
     cdef int* durations = <int*>duration_int_array.data
     cdef int N = len(time_array)
-    cdef int K = len(duration_array)
+    cdef int n_durations = len(duration_array)
 
     cdef int p
     cdef int P = len(period_array)
@@ -195,7 +195,7 @@ def transit_periodogram_impl(
     cdef double* out_depth_snr = <double*>out_depth_snr_array.data
     cdef double* out_log_like  = <double*>out_log_like_array.data
 
-    cdef int max_n_bins = int(np.max(period_array) / d_bin) + oversample + 1
+    cdef int max_n_bins = int(np.max(period_array) / bin_duration) + oversample + 1
     cdef double* mean_flux = <double*>malloc(max_n_bins*sizeof(double))
     if not mean_flux:
         raise MemoryError()
@@ -206,7 +206,7 @@ def transit_periodogram_impl(
 
     for p in range(P):
         fold(N, time, flux, ivar, sum_flux2, sum_flux,
-             sum_ivar, periods[p], K, durations, d_bin,
+             sum_ivar, periods[p], n_durations, durations, bin_duration,
              oversample, use_likelihood, mean_flux, mean_ivar,
              out_objective+p, out_depth+p, out_depth_std+p,
              out_phase+p, out_duration+p,

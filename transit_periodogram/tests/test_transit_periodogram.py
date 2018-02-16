@@ -31,5 +31,5 @@ def test_transit_periodogram(method):
                                              method=method)
 
     ind = np.argmax(periodogram)
-    assert abs(1/periods[ind] - 1/period) < 0.02 * df
     assert abs(depths[ind] - transit_depth)/depth_errs[ind] < 1
+    assert abs(1/periods[ind] - 1/period) < 0.02 * df
