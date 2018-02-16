@@ -5,17 +5,68 @@
 
 \begin{document}
 \maketitle
-\section{Why period search algorithm are important?}
+\section{Why period search algorithms are important?}
 \subsection{Statistical assumptions}
-We assume that $y_i \sim \mathcal{N}(m(t_i), \sigma_i)$, where
-
+We assume that $y_i \sim \mathcal{N}(m(t_i), \sigma_i)$, $i=1, 2, ..., n$, where
 \begin{equation}
 m(t_i) =
 \left\{
     \begin{array}{ll}
-        h, & \text{if}~t_0 \leq t_i \leq t_0 + w ,\\
-        d, & \text{otherwise}.
+        l, & \text{if}~t_0 \leq t_i \leq t_0 + w ,\\
+        h, & \text{otherwise}.
     \end{array}
 \right.
 \end{equation}
+such that $h>l$, in which $t_0$ is the transit time, $w$ is the transit duration,
+$h$ is the mean (not quite) flux level out-of-transit, $l$ is the mean (not quite)
+flux level in-transit.
+
+Then the log-likelihood function of $\bm{y} \triangleq (y_1, y_2, ..., y_n)$,
+assuming $y_i$'s are pair-wise idependent, can be written as
+\begin{align}
+    \log p(\bm{y}) = -\dfrac{1}{2}\sum_{i=1}^{n}\left(\dfrac{y_i - m(t_i)}{\sigma_i}\right)^2,
+\end{align}
+up to an additive constant.
+
+Note further that, the log-likelihood function can be expressed as
+\begin{align}
+    \log p(\bm{y}) = -\dfrac{1}{2}\left[\sum_{i \in I}\left(\dfrac{y_i - l}{\sigma_i}\right)^2
+                                        + \sum_{i \in I^{c}}\left(\dfrac{y_i - h}{\sigma_i}\right)^2\right],
+\end{align}
+in which $I\triangleq\left\{i | t_0 \leq t_i \leq t_0 + w \right\}$ and $I^{c}$ denotes the complement of $I$.
+
+And the maximum likelihood estimator for $h$ and $l$, denoted as $h^{\star}$ and $l^{\star}$,
+respectively, can be written as
+\begin{equation}
+    l^{\star}(\bm{y}) = \dfrac{\displaystyle\sum_{i \in I}\dfrac{y_i}{\sigma_i}}{\displaystyle\sum_{i\in I}\dfrac{1}{\sigma_i}},
+    ~~h^{\star}(\bm{y}) = \dfrac{\displaystyle\sum_{i \in I^{c}}\dfrac{y_i}{\sigma_i}}{\displaystyle\sum_{i\in I^{c}}\dfrac{1}{\sigma_i}}.
+\end{equation}
+
+Note that
+\begin{align}
+    \mathrm{var}\left(l^{\star}(\bm{y})\right) = \dfrac{\displaystyle\sum_{i \in I}\dfrac{\mathrm{var}(y_i)}{\sigma^2_i}}
+    {\displaystyle\left(\sum_{i\in I}\dfrac{1}{\sigma_i}\right)^{2}}
+    = \dfrac{\displaystyle\sum_{i \in I} 1}
+    {\displaystyle\left(\sum_{i\in I}\dfrac{1}{\sigma_i}\right)^{2}}\\
+    \mathrm{var}\left(h^{\star}(\bm{y})\right) = \dfrac{\displaystyle\sum_{i \in I^c}\dfrac{\mathrm{var}(y_i)}{\sigma^2_i}}
+    {\displaystyle\left(\sum_{i\in I^c}\dfrac{1}{\sigma_i}\right)^{2}}
+    = \dfrac{\displaystyle\sum_{i \in I^c} 1}
+    {\displaystyle\left(\sum_{i\in I^c}\dfrac{1}{\sigma_i}\right)^{2}}
+\end{align}
+
+The maximum likelihood for the transit depth, denoted as $d^{\star}$, can then be written as
+\begin{equation}
+    d^{\star}(\bm{y}) = h^{\star}(\bm{y}) - l^{\star}(\bm{y}).
+\end{equation}
+
+Then the variance on $d^{\star}$ can be expressed as
+\begin{align}
+    \mathrm{var}\left(d^{\star}\right) &= \mathrm{var}\left(h^{\star}\right) + \mathrm{var}\left(l^{\star}\right)\\
+    &= \dfrac{\displaystyle\sum_{i \in I^c} 1}
+    {\displaystyle\left(\sum_{i\in I^c}\dfrac{1}{\sigma_i}\right)^{2}} +
+    \dfrac{\displaystyle\sum_{i \in I} 1}
+    {\displaystyle\left(\sum_{i\in I}\dfrac{1}{\sigma_i}\right)^{2}}
+\end{align}
+
 \end{document}
+
