@@ -38,20 +38,18 @@ in which $I\triangleq\left\{i | t_0 \leq t_i \leq t_0 + w \right\}$ and $I^{c}$ 
 And the maximum likelihood estimator for $h$ and $l$, denoted as $h^{\star}$ and $l^{\star}$,
 respectively, can be written as
 \begin{equation}
-    l^{\star}(\bm{y}) = \dfrac{\displaystyle\sum_{i \in I}\dfrac{y_i}{\sigma_i}}{\displaystyle\sum_{i\in I}\dfrac{1}{\sigma_i}},
-    ~~h^{\star}(\bm{y}) = \dfrac{\displaystyle\sum_{i \in I^{c}}\dfrac{y_i}{\sigma_i}}{\displaystyle\sum_{i\in I^{c}}\dfrac{1}{\sigma_i}}.
+    l^{\star}(\bm{y}) = \dfrac{\displaystyle\sum_{i \in I}\dfrac{y_i}{\sigma^2_i}}{\displaystyle\sum_{i\in I}\dfrac{1}{\sigma^2_i}},
+    ~~h^{\star}(\bm{y}) = \dfrac{\displaystyle\sum_{i \in I^{c}}\dfrac{y_i}{\sigma^2_i}}{\displaystyle\sum_{i\in I^{c}}\dfrac{1}{\sigma^2_i}}.
 \end{equation}
 
 Note that
 \begin{align}
-    \mathrm{var}\left(l^{\star}(\bm{y})\right) = \dfrac{\displaystyle\sum_{i \in I}\dfrac{\mathrm{var}(y_i)}{\sigma^2_i}}
-    {\displaystyle\left(\sum_{i\in I}\dfrac{1}{\sigma_i}\right)^{2}}
-    = \dfrac{\displaystyle\sum_{i \in I} 1}
-    {\displaystyle\left(\sum_{i\in I}\dfrac{1}{\sigma_i}\right)^{2}}\\
-    \mathrm{var}\left(h^{\star}(\bm{y})\right) = \dfrac{\displaystyle\sum_{i \in I^c}\dfrac{\mathrm{var}(y_i)}{\sigma^2_i}}
-    {\displaystyle\left(\sum_{i\in I^c}\dfrac{1}{\sigma_i}\right)^{2}}
-    = \dfrac{\displaystyle\sum_{i \in I^c} 1}
-    {\displaystyle\left(\sum_{i\in I^c}\dfrac{1}{\sigma_i}\right)^{2}}
+    \mathrm{var}\left(l^{\star}(\bm{y})\right) = \dfrac{\displaystyle\sum_{i \in I}\dfrac{\mathrm{var}(y_i)}{\sigma^4_i}}
+    {\displaystyle\left(\sum_{i\in I}\dfrac{1}{\sigma^2_i}\right)^{2}}
+    = \displaystyle\left(\sum_{i\in I}\dfrac{1}{\sigma^2_i}\right)^{-1}\\
+    \mathrm{var}\left(h^{\star}(\bm{y})\right) = \dfrac{\displaystyle\sum_{i \in I^c}\dfrac{\mathrm{var}(y_i)}{\sigma^4_i}}
+    {\displaystyle\left(\sum_{i\in I^c}\dfrac{1}{\sigma^2_i}\right)^{2}}
+    = \displaystyle\left(\sum_{i\in I^c}\dfrac{1}{\sigma^2_i}\right)^{-1}
 \end{align}
 
 The maximum likelihood for the transit depth, denoted as $d^{\star}$, can then be written as
@@ -62,10 +60,8 @@ The maximum likelihood for the transit depth, denoted as $d^{\star}$, can then b
 Then the variance on $d^{\star}$ can be expressed as
 \begin{align}
     \mathrm{var}\left(d^{\star}\right) &= \mathrm{var}\left(h^{\star}\right) + \mathrm{var}\left(l^{\star}\right)\\
-    &= \dfrac{\displaystyle\sum_{i \in I^c} 1}
-    {\displaystyle\left(\sum_{i\in I^c}\dfrac{1}{\sigma_i}\right)^{2}} +
-    \dfrac{\displaystyle\sum_{i \in I} 1}
-    {\displaystyle\left(\sum_{i\in I}\dfrac{1}{\sigma_i}\right)^{2}}
+    &= \displaystyle\left(\sum_{i\in I}\dfrac{1}{\sigma^2_i}\right)^{-1}
+    + \displaystyle\left(\sum_{i\in I^c}\dfrac{1}{\sigma^2_i}\right)^{-1}.
 \end{align}
 
 \end{document}
