@@ -7,3 +7,5 @@ build
 transit_periodogram.egg-info/
 .coverage
 .DS_Store
+*.log
+*.aux
