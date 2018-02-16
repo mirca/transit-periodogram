@@ -25,11 +25,11 @@ def test_transit_periodogram(method):
     freq = np.arange(1./8, 1./4, 0.02*df)
     periods = 1.0 / freq
 
-    periods, objective, log_likelihood, depth_snr, depths, depth_errs, phase,\
-            best_durations = transit_periodogram(time, flux, periods,
-                                                 transit_duration, flux_err,
-                                                 method=method)
+    periodogram, depths, depth_errs, phase, durations, depth_snr, \
+        log_likelihood = transit_periodogram(time, flux, periods,
+                                             transit_duration, flux_err,
+                                             method=method)
 
-    ind = np.argmax(depth_snr)
+    ind = np.argmax(periodogram)
     assert abs(1/periods[ind] - 1/period) < 0.02 * df
     assert abs(depths[ind] - transit_depth)/depth_errs[ind] < 1

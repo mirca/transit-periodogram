@@ -61,11 +61,11 @@ cdef void fold(
     double* best_objective,  # The value of the periodogram at maximum
     double* best_depth,      # The estimated depth at maximum
     double* best_depth_std,  # The uncertainty on ``best_depth``
-    double* best_depth_snr,  # The signal-to-noise ratio of the depth estimate
-    double* best_log_like,   # The log likelihood at maximum
     double* best_phase,      # The phase of the mid-transit time in units of
                              # ``time``
-    double* best_duration    # The best fitting duration in units of ``time``
+    double* best_duration,   # The best fitting duration in units of ``time``
+    double* best_depth_snr,  # The signal-to-noise ratio of the depth estimate
+    double* best_log_like    # The log likelihood at maximum
 ):
 
     cdef int n_bins = int(period / d_bin) + oversample
@@ -190,10 +190,10 @@ def transit_periodogram_impl(
     cdef double* out_objective = <double*>out_objective_array.data
     cdef double* out_depth     = <double*>out_depth_array.data
     cdef double* out_depth_std = <double*>out_depth_std_array.data
-    cdef double* out_depth_snr = <double*>out_depth_snr_array.data
-    cdef double* out_log_like  = <double*>out_log_like_array.data
     cdef double* out_phase     = <double*>out_phase_array.data
     cdef double* out_duration  = <double*>out_duration_array.data
+    cdef double* out_depth_snr = <double*>out_depth_snr_array.data
+    cdef double* out_log_like  = <double*>out_log_like_array.data
 
     cdef int max_n_bins = int(np.max(period_array) / d_bin) + oversample + 1
     cdef double* mean_flux = <double*>malloc(max_n_bins*sizeof(double))
@@ -209,12 +209,12 @@ def transit_periodogram_impl(
              sum_ivar, periods[p], K, durations, d_bin,
              oversample, use_likelihood, mean_flux, mean_ivar,
              out_objective+p, out_depth+p, out_depth_std+p,
-             out_depth_snr+p, out_log_like+p, out_phase+p, out_duration+p)
+             out_phase+p, out_duration+p,
+             out_depth_snr+p, out_log_like+p)
 
     free(mean_flux)
     free(mean_ivar)
 
-    return (
-        period_array, out_objective_array, out_log_like_array,
-        out_depth_snr_array, out_depth_array, out_depth_std_array,
-        out_phase_array, out_duration_array)
+    return (out_objective_array, out_depth_array, out_depth_std_array,
+            out_phase_array, out_duration_array,
+            out_depth_snr_array, out_log_like_array)
