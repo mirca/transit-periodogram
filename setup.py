@@ -3,12 +3,14 @@
 
 from __future__ import division, print_function
 
+import os
 import numpy
 from setuptools import setup, Extension
 from Cython.Build import cythonize
 
+src = os.path.join("transit_periodogram", "transit_periodogram_impl.pyx")
 ext = Extension("transit_periodogram.transit_periodogram_impl",
-                sources=["transit_periodogram/transit_periodogram_impl.pyx"],
+                sources=[src],
                 include_dirs=[numpy.get_include()])
 
 setup(
