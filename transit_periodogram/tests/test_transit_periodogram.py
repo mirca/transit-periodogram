@@ -29,7 +29,9 @@ def test_transit_periodogram(method):
             best_durations = transit_periodogram(time, flux, periods,
                                                  transit_duration, flux_err,
                                                  method=method)
-
-    ind = np.argmax(depth_snr)
+    if method == "snr":
+        ind = np.argmax(depth_snr)
+        assert abs(depths[ind] - transit_depth)/depth_errs[ind] < 1
+    else:
+        ind = np.argmax(log_likelihood)
     assert abs(1/periods[ind] - 1/period) < 0.02 * df
-    assert abs(depths[ind] - transit_depth)/depth_errs[ind] < 1
