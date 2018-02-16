@@ -120,6 +120,8 @@ cdef void fold(
             flux_in /= ivar_in
             flux_out /= ivar_out
 
+            # we need to guarantee that flux_out > flux_in
+
             if use_likelihood:
                 objective = compute_log_like(flux_in, flux_out, ivar_in,
                                              sum_flux2, sum_flux, sum_ivar)
