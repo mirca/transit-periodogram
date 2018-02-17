@@ -65,7 +65,6 @@ def transit_periodogram(time, flux, periods, durations, flux_err=None,
 
     # Format an check the input period and duration arrays
     periods = np.atleast_1d(periods)
-    use_likelihood = (method == "likelihood")
     durations = np.ascontiguousarray(np.atleast_1d(np.abs(durations)),
                                      dtype=np.float64)
     if np.max(durations) >= np.min(periods):
@@ -79,6 +78,7 @@ def transit_periodogram(time, flux, periods, durations, flux_err=None,
     if method not in allowed_methods:
         raise ValueError("unrecognized method '{0}'\nallowed methods are: {1}"
                          .format(method, allowed_methods))
+    use_likelihood = (method == "likelihood")
 
     # Format and check the input arrays
     time = np.ascontiguousarray(time, dtype=np.float64)

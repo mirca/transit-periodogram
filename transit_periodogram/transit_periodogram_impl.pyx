@@ -2,6 +2,7 @@ import numpy as np
 cimport numpy as np
 
 cimport cython
+from cython.parallel import prange
 
 from libc.math cimport sqrt
 from libc.stdlib cimport malloc, free
@@ -20,7 +21,7 @@ cdef double compute_log_like(
         double sum_flux2,
         double sum_flux,
         double sum_ivar,
-):
+) nogil:
     cdef double arg = flux_in - flux_out
     cdef double chi2 = sum_flux2 - 2*flux_out*sum_flux
     chi2 += flux_out*flux_out * sum_ivar
@@ -40,6 +41,8 @@ cdef void fold(
     double sum_flux2,   # The precomputed value of sum(flux^2 * ivar)
     double sum_flux,    # The precomputed value of sum(flux * ivar)
     double sum_ivar,    # The precomputed value of sum(ivar)
+    double ninf,        # Negative infinity for DTYPE
+    double eps,         # Machine precision for DTYPE
 
     double period,      # The period to test in units of ``time``
 
@@ -53,10 +56,6 @@ cdef void fold(
                         # 0 - depth signal-to-noise
                         # 1 - log likelihood
 
-    # Work arrays
-    double* mean_flux,  # These are two work arrays that must be at least
-    double* mean_ivar,  # n_bins = max(period/bin_duration)+oversample long
-
     # Outputs
     double* best_objective,  # The value of the periodogram at maximum
     double* best_depth,      # The estimated depth at maximum
@@ -66,14 +65,22 @@ cdef void fold(
     double* best_duration,   # The best fitting duration in units of ``time``
     double* best_depth_snr,  # The signal-to-noise ratio of the depth estimate
     double* best_log_like    # The log likelihood at maximum
-):
+) nogil:
 
-    cdef int n_bins = int(period / bin_duration) + oversample
     cdef int ind, n, k
     cdef double flux_in, flux_out, ivar_in, ivar_out, \
                 depth, depth_std, depth_snr, log_like, objective
 
-    cdef double eps = np.finfo(DTYPE).eps
+    cdef int n_bins = <int>(period / bin_duration) + oversample
+    cdef double* mean_flux = <double*>malloc((n_bins+1)*sizeof(double))
+    if not mean_flux:
+        with gil:
+            raise MemoryError()
+    cdef double* mean_ivar = <double*>malloc((n_bins+1)*sizeof(double))
+    if not mean_ivar:
+        free(mean_flux)
+        with gil:
+            raise MemoryError()
 
     # This first pass bins the data into a fine-grain grid in phase from zero
     # to period and computes the weighted sum and inverse variance for each
@@ -82,7 +89,7 @@ cdef void fold(
         mean_flux[n] = 0.0
         mean_ivar[n] = 0.0
     for n in range(N):
-        ind = int((time[n] % period) / bin_duration) + 1
+        ind = <int>((time[n] % period) / bin_duration) + 1
         mean_flux[ind] += flux[n] * ivar[n]
         mean_ivar[ind] += ivar[n]
 
@@ -105,7 +112,7 @@ cdef void fold(
     # Then we loop over phases (in steps of n_bin) and durations and find the
     # best fit value. By looping over durations here, we get to reuse a lot of
     # the computations that we did above.
-    best_objective[0] = -np.inf
+    best_objective[0] = ninf
     for k in range(n_durations):
         for n in range(n_bins-durations[k]+1):
             # Estimate the in-transit and out-of-transit flux
@@ -147,8 +154,11 @@ cdef void fold(
                 best_depth_std[0] = depth_std
                 best_depth_snr[0] = depth_snr
                 best_log_like[0] = log_like
-                best_phase[0] = n * bin_duration
+                best_phase[0] = n * bin_duration + 0.5*durations[k]*bin_duration
                 best_duration[0] = durations[k] * bin_duration
+
+    free(mean_flux)
+    free(mean_ivar)
 
 
 @cython.cdivision(True)
@@ -197,25 +207,16 @@ def transit_periodogram_impl(
     cdef double* out_depth_snr = <double*>out_depth_snr_array.data
     cdef double* out_log_like  = <double*>out_log_like_array.data
 
-    cdef int max_n_bins = int(np.max(period_array) / bin_duration) + oversample + 1
-    cdef double* mean_flux = <double*>malloc(max_n_bins*sizeof(double))
-    if not mean_flux:
-        raise MemoryError()
-    cdef double* mean_ivar = <double*>malloc(max_n_bins*sizeof(double))
-    if not mean_ivar:
-        free(mean_flux)
-        raise MemoryError()
+    cdef double eps = np.finfo(DTYPE).eps
+    cdef double ninf = -np.inf
 
-    for p in range(P):
+    for p in prange(P, nogil=True):
         fold(N, time, flux, ivar, sum_flux2, sum_flux,
-             sum_ivar, periods[p], n_durations, durations, bin_duration,
-             oversample, use_likelihood, mean_flux, mean_ivar,
+             sum_ivar, ninf, eps, periods[p], n_durations, durations,
+             bin_duration, oversample, use_likelihood,
              out_objective+p, out_depth+p, out_depth_std+p,
              out_phase+p, out_duration+p,
              out_depth_snr+p, out_log_like+p)
-
-    free(mean_flux)
-    free(mean_ivar)
 
     return (out_objective_array, out_depth_array, out_depth_std_array,
             out_phase_array, out_duration_array,
