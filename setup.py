@@ -7,6 +7,8 @@ import os
 import sys
 import tempfile
 
+from Cython.Build import cythonize
+
 import setuptools
 from setuptools import setup, Extension
 from setuptools.command.build_ext import build_ext as _build_ext
@@ -90,7 +92,7 @@ ext = Extension("transit_periodogram.transit_periodogram_impl",
 setup(
     name="transit_periodogram",
     packages=["transit_periodogram"],
-    ext_modules=[ext],
+    ext_modules=cythonize([ext]),
     setup_require=['pytest-runner'],
     test_require=['pytest', 'pytest-cov'],
     cmdclass=dict(build_ext=build_ext),
