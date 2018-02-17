@@ -9,3 +9,4 @@ transit_periodogram.egg-info/
 .DS_Store
 *.log
 *.aux
+var/
