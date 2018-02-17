@@ -6,7 +6,6 @@ from __future__ import division, print_function
 import os
 import sys
 import tempfile
-from Cython.Build import cythonize
 
 import setuptools
 from setuptools import setup, Extension
@@ -77,7 +76,7 @@ class build_ext(_build_ext):
         # Update the extension
         ext.include_dirs += include_dirs
         ext.library_dirs += library_dirs
-        ext.library_dirs += libraries
+        ext.libraries += libraries
         ext.extra_compile_args += compile_flags
         ext.extra_link_args += link_flags
 
