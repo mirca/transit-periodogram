@@ -53,9 +53,8 @@ class build_ext(_build_ext):
         link_flags = []
 
         if sys.platform == "darwin":
-            # compile_flags += ["-march=native", "-mmacosx-version-min=10.9"]
-            # link_flags += ["-march=native", "-mmacosx-version-min=10.9"]
-
+            compile_flags += ["-march=native", "-mmacosx-version-min=10.9"]
+            link_flags += ["-march=native", "-mmacosx-version-min=10.9"]
             if has_flag(self.compiler, "-fopenmp"):
                 # This is where Homebrew now installs OMP
                 self.compiler.library_dirs += ["/usr/local/opt/llvm/lib"]
@@ -65,7 +64,15 @@ class build_ext(_build_ext):
                 compile_flags += ["-fopenmp"]
                 link_flags += ["-fopenmp"]
         else:
-            libraries += ["m", "c++", "stdc++"]
+            if has_library(self.compiler, "m"):
+                libraries += ["m"]
+            if has_flag(self.compiler, "-fopenmp"):
+                if has_library(self.compiler, "omp"):
+                    libraries += ["omp"]
+                elif has_library(self.compiler, "gomp"):
+                    libraries += ["gomp"]
+                compile_flags += ["-fopenmp"]
+                link_flags += ["-fopenmp"]
 
         # Update the extension
         ext.include_dirs += include_dirs
@@ -73,9 +80,6 @@ class build_ext(_build_ext):
         ext.library_dirs += libraries
         ext.extra_compile_args += compile_flags
         ext.extra_link_args += link_flags
-
-        print(ext.extra_compile_args)
-        print(ext.extra_link_args)
 
         _build_ext.build_extension(self, ext)
 
