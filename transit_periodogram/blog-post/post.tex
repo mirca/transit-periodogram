@@ -24,14 +24,14 @@ flux level in-transit.
 Then the log-likelihood function of $\bm{y} \triangleq (y_1, y_2, ..., y_n)$,
 assuming $y_i$'s are pair-wise idependent, can be written as
 \begin{align}
-    \log p(\bm{y}) = -\dfrac{1}{2}\sum_{i=1}^{n}\left(\dfrac{y_i - m(t_i)}{\sigma_i}\right)^2,
+    \log p(\bm{y}| h, l) = -\dfrac{1}{2}\sum_{i=1}^{n}\left(\dfrac{y_i - m(t_i)}{\sigma_i}\right)^2,
 \end{align}
 up to an additive constant.
 
 Note further that, the log-likelihood function can be expressed as
 \begin{align}
-    \log p(\bm{y}) = -\dfrac{1}{2}\left[\sum_{i \in I}\left(\dfrac{y_i - l}{\sigma_i}\right)^2
-                                        + \sum_{i \in I^{c}}\left(\dfrac{y_i - h}{\sigma_i}\right)^2\right],
+    \log p(\bm{y}| h, l) = -\dfrac{1}{2}\left[\sum_{i \in I}\left(\dfrac{y_i - l}{\sigma_i}\right)^2
+                              + \sum_{i \in I^{c}}\left(\dfrac{y_i - h}{\sigma_i}\right)^2\right],
 \end{align}
 in which $I\triangleq\left\{i | t_0 \leq t_i \leq t_0 + w \right\}$ and $I^{c}$ denotes the complement of $I$.
 
